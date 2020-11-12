@@ -1,4 +1,4 @@
-FROM quay.io/cybozu/ubuntu-dev:18.04 AS build
+FROM quay.io/cybozu/ubuntu-dev:20.04 AS build
 
 # Build bird
 ARG BIRD_VERSION=2.0.7
@@ -42,16 +42,14 @@ RUN ./configure --exec-prefix=/usr/local/chrony --with-pidfile=/run/chrony/chron
     && make install \
     && cp ./COPYING /usr/local/chrony/copyright
 
-FROM quay.io/cybozu/ubuntu:18.04
+FROM quay.io/cybozu/ubuntu:20.04
 
-ARG SQUID_VERSION=3.5.27-1ubuntu1.9
-ARG DNSMASQ_VERSION=2.79-1
+ARG SQUID_VERSION=4.10-1ubuntu1.2
+ARG DNSMASQ_VERSION=2.80-1.1ubuntu1
 
 RUN apt-get update \
 && apt-get install -y software-properties-common \
 && add-apt-repository -y ppa:smoser/swtpm \
-&& apt-key adv --keyserver keyserver.ubuntu.com --recv 7AD8C79D \
-&& add-apt-repository 'deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main' \
 && apt-get update \
 && apt-get -y install --no-install-recommends \
       git \
@@ -73,12 +71,11 @@ RUN apt-get update \
       libgpgme11 \
       freeipmi-tools \
       unzip \
-      skopeo \
       libdevmapper-dev \
       libgpgme-dev \
       libostree-dev \
       fakeroot \
-      btrfs-tools \
+      libbtrfs-dev \
       iptables \
       iproute2 \
       time \
@@ -102,7 +99,7 @@ ENV PATH=/usr/local/bird/sbin:"$PATH"
 
 # Install chrony
 COPY --from=build /usr/local/chrony /usr/local/chrony
-COPY chrony.conf.example /etc/chrony.conf
+COPY chrony.conf.example /etc/chrony/chrony.conf
 
 VOLUME /var/lib/chrony/
 
@@ -111,14 +108,14 @@ EXPOSE 123/udp
 ENV PATH=/usr/local/chrony/bin:"$PATH"
 
 # Install go
-
 ARG GO_VERSION=1.13.8
 
 ENV GOPATH=/go
 ENV PATH=/go/bin:/usr/local/go/bin:"$PATH"
 
-RUN curl -s -f -O https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz \
-    && rm -rf /usr/local/go \
+COPY go${GO_VERSION}.linux-amd64.tar.gz ./
+
+RUN rm -rf /usr/local/go \
     && tar -x -z -C /usr/local -f go${GO_VERSION}.linux-amd64.tar.gz \
     && rm go${GO_VERSION}.linux-amd64.tar.gz \
     && mkdir -p /go/src \
@@ -130,3 +127,5 @@ RUN curl -s -f -O https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz \
     && GOBIN=/usr/local/bin go get github.com/gostaticanalysis/nilerr/cmd/nilerr \
     && rm -rf /go/src \
     && mkdir -p /go/src
+
+COPY setup-dctest.sh /
